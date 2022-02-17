@@ -4,6 +4,7 @@ import numpy as np
 import re
 import open3d as o3d
 from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt
 import scipy
 
 file_name = "star"
@@ -17,16 +18,20 @@ def normal_visualization(N):
     N = np.reshape(N, (image_row, image_col, 3))
     N[:,:,0], N[:,:,2] = N[:,:,2], N[:,:,0].copy()
     N = (N + 1.0) / 2.0
-    cv2.imshow('normal map', N)
+    cv2.imshow('Normal map', N)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
 def depth_visualization(D):
     D = np.reshape(D, (image_row,image_col))
-    D = np.uint8(D)
-    cv2.imshow('depth map', D)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+    # D = np.uint8(D)
+    plt.figure()
+    plt.imshow(D)
+    plt.colorbar(label='Distance to Camera')
+    plt.title('Depth map')
+    plt.xlabel('X Pixel')
+    plt.ylabel('Y Pixel')
+    plt.show()
 
 # read text file of light source
 f = open(os.path.join("test",file_name,"LightSource.txt"))
@@ -107,6 +112,9 @@ for i in range(image_row):
 MtM = M.transpose().dot(M)
 Mtv = M.transpose().dot(v)
 z, info = scipy.sparse.linalg.cg(MtM, Mtv)
+# for i in range(image_col*image_row):
+#     if z[i] != 0:
+#         print(z[i])
 depth_visualization(z)
 
 # output to ply file
