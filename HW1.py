@@ -12,6 +12,7 @@ image_arr = []
 light_vector_arr = []
 image_row = 0 
 image_col = 0
+mask = []
 
 # input the array shape as (w*h) * 3 , every row is a normal vetor of one pixel
 def normal_visualization(N):
@@ -54,7 +55,9 @@ for i in range(1,7):
     image_path = os.path.join("test",file_name,image_name)
     print(image_path)
     temp = cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
-    image_row,image_col = temp.shape
+    if i == 1:
+        mask = np.asarray(temp)
+        image_row,image_col = temp.shape
     temp = temp.flatten()
     # reshape to 1 * (w*h) matrix
     image_arr.append(temp)
@@ -82,40 +85,75 @@ n = normalize(Kdn, axis=1)
 #     norm = np.linalg.norm(v)
 #     if norm != 0:
 #         n[i] = v / norm
-normal_visualization(n)
+
+# normal_visualization(n)
 
 # Surface Reconstruction
-### calc depth Z value : Mz = v 
-image_size = image_row * image_col
-M = scipy.sparse.lil_matrix((image_size * 2, image_size))
-v = np.zeros(image_size * 2,dtype=np.float32)
-z_approx = np.zeros((image_row,image_col),dtype=float)
-mask = np.ones((image_row,image_col))
-nx = n[:,0]
-ny = n[:,1]
-nz = n[:,2]
-### fill v
-v[0:nx.shape[0]] = -nx/(nz+1e-8)
-v[nx.shape[0]:v.shape[0]] = -ny/(nz+1e-8)
-### fill M
-offset = image_size
-for i in range(image_row):
-    for j in range(image_col):
-        idx = i * image_col + j
-        if j != image_col-1:
-            M[idx, idx] = -1
-            M[idx, idx+1] = 1
-        if i != image_row-1:
-            M[idx + offset, idx] = -1
-            M[idx + offset, idx + image_col] = 1
 
-MtM = M.transpose().dot(M)
-Mtv = M.transpose().dot(v)
-z, info = scipy.sparse.linalg.cg(MtM, Mtv)
-# for i in range(image_col*image_row):
-#     if z[i] != 0:
-#         print(z[i])
-depth_visualization(z)
+### calc depth Z value : Mz = v
+n = np.reshape(n, (image_row, image_col, 3))
+obj_h, obj_w = np.where(mask != 0)
+num_pix = np.size(obj_h)
+print("Valid pixel: ", num_pix)
+#fill valid index
+full2obj = np.zeros((image_row, image_col))
+for idx in range(np.size(obj_h)):
+    full2obj[obj_h[idx], obj_w[idx]] = idx
+
+M = scipy.sparse.lil_matrix((num_pix * 2, num_pix))
+v = np.zeros(num_pix * 2, dtype=np.float32)
+for idx in range(num_pix):
+    h = obj_h[idx]
+    w = obj_w[idx]
+    nx = n[h][w][0]
+    ny = n[h][w][1]
+    nz = n[h][w][2]
+
+    row_idx = idx * 2
+    if mask[h][w + 1]:
+        idx_horizon = full2obj[h][w + 1]
+        M[row_idx, idx] = -1
+        M[row_idx, idx_horizon] = 1
+        v[row_idx] = -nx / nz
+    elif mask[h][w - 1]:
+        idx_horizon = full2obj[h][w - 1]
+        M[row_idx, idx] = -1
+        M[row_idx, idx_horizon] = 1
+        v[row_idx] = -nx / nz
+
+    row_idx = idx * 2 + 1
+    if mask[h + 1][w]:
+        idx_vert = full2obj[h + 1][w]
+        M[row_idx, idx] = 1
+        M[row_idx, idx_vert] = -1
+        v[row_idx] = -ny / nz
+    elif mask[h - 1][w]:
+        idx_vert = full2obj[h - 1][w]
+        M[row_idx, idx] = 1
+        M[row_idx, idx_vert] = -1
+        v[row_idx] = -ny / nz
+
+MtM = M.T @ M
+Mtv = M.T @ v
+z = scipy.sparse.linalg.spsolve(MtM, Mtv)
+print(z.shape)
+
+std_z = np.std(z, ddof=1)
+mean_z = np.mean(z)
+z_zscore = (z - mean_z) / std_z
+
+# 因奇异值造成的异常
+outlier_ind = np.abs(z_zscore) > 10
+z_min = np.min(z[~outlier_ind])
+z_max = np.max(z[~outlier_ind])
+
+Z = mask.astype('float')
+for idx in range(num_pix):
+    h = obj_h[idx]
+    w = obj_w[idx]
+    Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
+
+depth_visualization(Z)
 
 # output to ply file
 pcd = o3d.geometry.PointCloud()
