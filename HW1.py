@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import re
 import open3d as o3d
+import open3d.core as o3c
 from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
@@ -33,6 +34,24 @@ def depth_visualization(D):
     plt.xlabel('X Pixel')
     plt.ylabel('Y Pixel')
     plt.show()
+
+def save_ply(Z):
+    Z = np.reshape(Z, (image_row,image_col))
+    data = np.zeros((image_row*image_col,3),dtype=np.float32)
+    for i in range(image_row):
+        for j in range(image_col):
+            idx = i * image_col + j
+            data[idx][0] = i
+            data[idx][1] = j
+            data[idx][2] = Z[i][j]
+    # output to ply file
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(data)
+    o3d.io.write_point_cloud("./temp.ply", pcd,write_ascii=True)
+
+def read_ply(filepath):
+    pcd = o3d.io.read_point_cloud(filepath)
+    o3d.visualization.draw_geometries([pcd])
 
 # read text file of light source
 f = open(os.path.join("test",file_name,"LightSource.txt"))
@@ -136,7 +155,6 @@ for idx in range(num_pix):
 MtM = M.T @ M
 Mtv = M.T @ v
 z = scipy.sparse.linalg.spsolve(MtM, Mtv)
-print(z.shape)
 
 std_z = np.std(z, ddof=1)
 mean_z = np.mean(z)
@@ -153,9 +171,7 @@ for idx in range(num_pix):
     w = obj_w[idx]
     Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
 
-depth_visualization(Z)
+# depth_visualization(Z)
 
-# output to ply file
-pcd = o3d.geometry.PointCloud()
-# pcd.points = o3d.utility.Vector3dVector(Kdn)
-# o3d.io.write_point_cloud("./temp.ply", pcd)
+save_ply(Z)
+read_ply("./temp.ply")
