@@ -17,25 +17,25 @@ mask = []
 
 # input the array shape as (w*h) * 3 , every row is a normal vetor of one pixel
 def normal_visualization(N):
-    N = np.reshape(N, (image_row, image_col, 3))
-    N[:,:,0], N[:,:,2] = N[:,:,2], N[:,:,0].copy()
-    N = (N + 1.0) / 2.0
-    cv2.imshow('Normal map', N)
+    N_map = np.copy(np.reshape(N, (image_row, image_col, 3)))
+    N_map[:,:,0], N_map[:,:,2] = N_map[:,:,2], N_map[:,:,0].copy()
+    N_map = (N_map + 1.0) / 2.0
+    cv2.imshow('Normal map', N_map)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
 def depth_visualization(D):
-    D = np.reshape(D, (image_row,image_col))
+    D_map = np.copy(np.reshape(D, (image_row,image_col)))
     # D = np.uint8(D)
     plt.figure()
-    plt.imshow(D)
+    plt.imshow(D_map)
     plt.colorbar(label='Distance to Camera')
     plt.title('Depth map')
     plt.xlabel('X Pixel')
     plt.ylabel('Y Pixel')
     plt.show()
 
-def save_ply(Z):
+def save_ply(Z,filepath):
     Z = np.reshape(Z, (image_row,image_col))
     data = np.zeros((image_row*image_col,3),dtype=np.float32)
     for i in range(image_row):
@@ -47,11 +47,58 @@ def save_ply(Z):
     # output to ply file
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(data)
-    o3d.io.write_point_cloud("./temp.ply", pcd,write_ascii=True)
+    o3d.io.write_point_cloud(filepath, pcd,write_ascii=True)
 
 def read_ply(filepath):
     pcd = o3d.io.read_point_cloud(filepath)
     o3d.visualization.draw_geometries([pcd])
+
+def surface_reconstruction(N):
+    N = np.reshape(N,(image_row , image_col,3))
+    z_approx1 = np.zeros((image_row , image_col))
+    z_approx2 = np.zeros((image_row , image_col))
+    z_approx3 = np.zeros((image_row , image_col))
+    z_approx4 = np.zeros((image_row , image_col))
+    z = np.zeros((image_row , image_col))
+    for i in range(1,image_row):
+        for j in range(image_col):
+            n1 = N[i][j][0]
+            n2 = N[i][j][1]
+            n3 = N[i][j][2]
+            if n3 != 0:
+                z_approx1[i][j] = n2/n3 + z_approx1[i - 1][j]
+    for i in range(image_row -2,-1,-1):
+        for j in range(image_col):
+            n1 = N[i][j][0]
+            n2 = N[i][j][1]
+            n3 = N[i][j][2]
+            if n3 != 0:
+                z_approx2[i][j] = -n2/n3 + z_approx2[i+1][j]
+
+    for j in range(1,image_col):
+        for i in range(image_row):
+            n1 = N[i][j][0]
+            n2 = N[i][j][1]
+            n3 = N[i][j][2]
+            if n3 != 0:
+                z_approx3[i][j] = -n1/n3 + z_approx3[i][j - 1]
+    for j in range(image_col - 2,-1,-1):
+        for i in range(image_row):
+            n1 = N[i][j][0]
+            n2 = N[i][j][1]
+            n3 = N[i][j][2]
+            if n3 != 0:
+                z_approx4[i][j] = n1/n3 + z_approx4[i][j + 1]
+    
+    for i in range(0,image_col):
+        for j in range(0,image_row):
+            z1 = z_approx1[i][j]
+            z2 = z_approx2[i][j]
+            z3 = z_approx3[i][j]
+            z4 = z_approx4[i][j]
+            z[i][j] = (z1*(image_row - i) + z2*i + z3*(image_col - j) + z4*j) / (image_row + image_col) 
+
+    return z
 
 # read text file of light source
 f = open(os.path.join("test",file_name,"LightSource.txt"))
@@ -171,7 +218,7 @@ for idx in range(num_pix):
     w = obj_w[idx]
     Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
 
+Z = surface_reconstruction(n)
 # depth_visualization(Z)
-
-save_ply(Z)
+save_ply(Z,"./temp.ply")
 read_ply("./temp.ply")
