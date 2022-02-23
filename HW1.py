@@ -123,6 +123,7 @@ for i in range(1,7):
     temp = cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
     if i == 1:
         mask = np.asarray(temp)
+        print(mask)
         image_row,image_col = temp.shape
     temp = temp.flatten()
     # reshape to 1 * (w*h) matrix
@@ -163,6 +164,7 @@ num_pix = np.size(obj_h)
 print("Valid pixel: ", num_pix)
 #fill valid index
 full2obj = np.zeros((image_row, image_col))
+
 for idx in range(np.size(obj_h)):
     full2obj[obj_h[idx], obj_w[idx]] = idx
 
@@ -199,24 +201,22 @@ for idx in range(num_pix):
         M[row_idx, idx_vert] = -1
         v[row_idx] = -ny / nz
 
+
 MtM = M.T @ M
 Mtv = M.T @ v
 z = scipy.sparse.linalg.spsolve(MtM, Mtv)
 
-std_z = np.std(z, ddof=1)
+'''std_z = np.std(z, ddof=1)
 mean_z = np.mean(z)
-z_zscore = (z - mean_z) / std_z
-
-# 因奇异值造成的异常
-outlier_ind = np.abs(z_zscore) > 10
-z_min = np.min(z[~outlier_ind])
-z_max = np.max(z[~outlier_ind])
+z_score = (z - mean_z) / std_z'''
 
 Z = mask.astype('float')
 for idx in range(num_pix):
     h = obj_h[idx]
     w = obj_w[idx]
-    Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
+    #Z[h, w] = (z_score[idx] + 1) / 2
+    Z[h,w] = z[idx]
+
 
 Z = surface_reconstruction(n)
 # depth_visualization(Z)
