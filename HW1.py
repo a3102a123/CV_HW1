@@ -8,7 +8,7 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
 
-file_name = "star"
+file_name = "bunny"
 image_arr = []
 light_vector_arr = []
 image_row = 0 
@@ -36,14 +36,14 @@ def depth_visualization(D):
     plt.show()
 
 def save_ply(Z,filepath):
-    Z = np.reshape(Z, (image_row,image_col))
+    Z_map = np.reshape(Z, (image_row,image_col)).copy()
     data = np.zeros((image_row*image_col,3),dtype=np.float32)
     for i in range(image_row):
         for j in range(image_col):
             idx = i * image_col + j
             data[idx][0] = i
             data[idx][1] = j
-            data[idx][2] = Z[i][j]
+            data[idx][2] = Z_map[i][j]
     # output to ply file
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(data)
@@ -53,7 +53,14 @@ def read_ply(filepath):
     pcd = o3d.io.read_point_cloud(filepath)
     o3d.visualization.draw_geometries([pcd])
 
-def surface_reconstruction(N):
+def print_depth(Z):
+    Z_map = np.reshape(Z,(image_row,image_col)).copy()
+    for i in range(image_row):
+        for j in range(image_col):
+            if(Z_map[i][j] != 0):
+                print(i," ",j," : ",Z_map[i][j])
+
+def surface_reconstruction_integral(N):
     N = np.reshape(N,(image_row , image_col,3))
     z_approx1 = np.zeros((image_row , image_col))
     z_approx2 = np.zeros((image_row , image_col))
@@ -100,6 +107,32 @@ def surface_reconstruction(N):
 
     return z
 
+def surface_reconstruction_matrix(N):
+    N = np.reshape(N,(image_row , image_col,3))
+    num_pix = image_row * image_col
+    M = scipy.sparse.lil_matrix((2*num_pix, num_pix))
+    v = np.zeros((2*num_pix, 1))
+    for i in range(image_row):
+        for j in range(image_col):
+            idx = i * image_col + j
+            x = N[i][j][0]
+            y = N[i][j][1]
+            z = N[i][j][2]
+            if z != 0:
+                v[idx] = -x/z
+                v[idx + num_pix] = -y/z
+            if j != (image_col - 1) :
+                M[idx , idx] =  -1
+                M[idx , idx+1] = 1
+            if i != (image_col - 1):
+                M[idx + num_pix , idx] = -1
+                M[idx + num_pix , idx + image_col] = 1
+    
+    MtM = M.T @ M
+    Mtv = M.T @ v
+    Z, info = scipy.sparse.linalg.cg(MtM, Mtv)
+    return Z
+
 # read text file of light source
 f = open(os.path.join("test",file_name,"LightSource.txt"))
 for line in f:
@@ -123,7 +156,6 @@ for i in range(1,7):
     temp = cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
     if i == 1:
         mask = np.asarray(temp)
-        print(mask)
         image_row,image_col = temp.shape
     temp = temp.flatten()
     # reshape to 1 * (w*h) matrix
@@ -146,6 +178,8 @@ print("Kdn array : ",Kdn.shape)
 # Kdn = Pn = 2-norm(n) * n -> n = Kdn / 2-norm(n)
 n = np.zeros_like(Kdn)
 n = normalize(Kdn, axis=1)
+print(Kdn[int(image_row / 2 * image_col + image_col /2)]," ---> ",n[int(image_row / 2 * image_col + image_col /2)])
+n = Kdn
 ### calculate the normal by numpy
 # for i in range(image_row*image_col):
 #     v = Kdn[i]
@@ -159,6 +193,11 @@ n = normalize(Kdn, axis=1)
 
 ### calc depth Z value : Mz = v
 n = np.reshape(n, (image_row, image_col, 3))
+mask = np.zeros((image_row,image_col))
+for i in range(image_row):
+    for j in range(image_col):
+        if n[i][j][2] != 0:
+            mask[i][j] = 1
 obj_h, obj_w = np.where(mask != 0)
 num_pix = np.size(obj_h)
 print("Valid pixel: ", num_pix)
@@ -206,19 +245,24 @@ MtM = M.T @ M
 Mtv = M.T @ v
 z = scipy.sparse.linalg.spsolve(MtM, Mtv)
 
-'''std_z = np.std(z, ddof=1)
+std_z = np.std(z, ddof=1)
 mean_z = np.mean(z)
-z_score = (z - mean_z) / std_z'''
+z_zscore = (z - mean_z) / std_z
 
-Z = mask.astype('float')
+# 因奇异值造成的异常
+outlier_ind = np.abs(z_zscore) > 10
+z_min = np.min(z[~outlier_ind])
+z_max = np.max(z[~outlier_ind])
+
+Z = np.zeros((image_row,image_col))
 for idx in range(num_pix):
     h = obj_h[idx]
     w = obj_w[idx]
-    #Z[h, w] = (z_score[idx] + 1) / 2
-    Z[h,w] = z[idx]
+    Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
+    # Z[h,w] = z[idx]
 
-
-Z = surface_reconstruction(n)
+# print_depth(Z)
+# Z = surface_reconstruction_matrix(n)
 # depth_visualization(Z)
 save_ply(Z,"./temp.ply")
 read_ply("./temp.ply")
