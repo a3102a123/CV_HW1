@@ -9,7 +9,7 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
 
-file_name = "star"
+file_name = "bunny"
 image_arr = []
 light_vector_arr = []
 image_row = 0 
@@ -44,6 +44,9 @@ def depth_visualization(D):
 def save_ply(Z,filepath):
     Z_map = np.reshape(Z, (image_row,image_col)).copy()
     data = np.zeros((image_row*image_col,3),dtype=np.float32)
+    # let all point float on a base plane 
+    baseline_val = np.min(Z_map)
+    Z_map[np.where(Z_map == 0)] = baseline_val
     for i in range(image_row):
         for j in range(image_col):
             idx = i * image_col + j
