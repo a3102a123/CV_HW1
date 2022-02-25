@@ -1,5 +1,6 @@
 import os
 import cv2
+from cv2 import threshold
 import numpy as np
 import re
 import open3d as o3d
@@ -8,7 +9,7 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
 
-file_name = "bunny"
+file_name = "star"
 image_arr = []
 light_vector_arr = []
 image_row = 0 
@@ -48,9 +49,9 @@ def save_ply(Z,filepath):
     for i in range(image_row):
         for j in range(image_col):
             idx = i * image_col + j
-            data[idx][0] = i
-            data[idx][1] = j
-            data[idx][2] = Z_map[i][j]
+            data[idx][0] = j
+            data[idx][1] = i
+            data[idx][2] = Z_map[image_row - 1 - i][image_col - 1 - j]
     # output to ply file
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(data)
@@ -104,8 +105,8 @@ def surface_reconstruction_integral(N):
             if n3 != 0:
                 z_approx4[i][j] = n1/n3 + z_approx4[i][j + 1]
     
-    for i in range(0,image_col):
-        for j in range(0,image_row):
+    for i in range(0,image_row):
+        for j in range(0,image_col):
             z1 = z_approx1[i][j]
             z2 = z_approx2[i][j]
             z3 = z_approx3[i][j]
@@ -145,6 +146,7 @@ f = open(os.path.join("test",file_name,"LightSource.txt"))
 for line in f:
     light_vector = np.zeros(3)
     # parsing 
+    print(line.split(" ")[0])
     light_str = line.split(" ")[1]
     light_str = re.split(',|\(|\)|\\n',light_str)
     light_str = list(filter(None, light_str))
@@ -172,6 +174,8 @@ for i in range(1,7):
 light_vector_arr = np.asarray(light_vector_arr)
 image_arr = np.asarray(image_arr)
 
+print("Image size : ", image_row , " , " , image_col)
+print("--------------------------")
 print("array shape")
 print("--------------------------")
 print("Light vector : ",light_vector_arr.shape)
@@ -198,6 +202,7 @@ print(Kdn[int(image_row / 2 * image_col + image_col /2)]," ---> ",n[int(image_ro
 
 ### calc depth Z value : Mz = v
 n = np.reshape(n, (image_row, image_col, 3))
+# create mask
 mask = np.zeros((image_row,image_col))
 for i in range(image_row):
     for j in range(image_col):
@@ -229,8 +234,8 @@ for idx in range(num_pix):
         v[row_idx] = -nx / nz
     elif mask[h][w - 1]:
         idx_horizon = full2obj[h][w - 1]
-        M[row_idx, idx] = -1
-        M[row_idx, idx_horizon] = 1
+        M[row_idx, idx] = 1
+        M[row_idx, idx_horizon] = -1
         v[row_idx] = -nx / nz
 
     row_idx = idx * 2 + 1
@@ -241,8 +246,8 @@ for idx in range(num_pix):
         v[row_idx] = -ny / nz
     elif mask[h - 1][w]:
         idx_vert = full2obj[h - 1][w]
-        M[row_idx, idx] = 1
-        M[row_idx, idx_vert] = -1
+        M[row_idx, idx] = -1
+        M[row_idx, idx_vert] = 1
         v[row_idx] = -ny / nz
 
 
@@ -266,11 +271,12 @@ for idx in range(num_pix):
     # Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
     Z[h,w] = z[idx]
 
-# print_depth(Z)
+# other way try to solve the skewness of depth map
 # Z = surface_reconstruction_matrix(n)
+# Z = surface_reconstruction_integral(n)
 
 # visualizing corresponding parameter
 # depth_visualization(Z)
-normal_visualization(n)
-# save_ply(Z,"./temp.ply")
-# read_ply("./temp.ply")
+# normal_visualization(n)
+save_ply(Z,"./temp.ply")
+read_ply("./temp.ply")

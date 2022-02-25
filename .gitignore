@@ -151,5 +151,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-temp.ply
-some_ascii.ply
+*.ply
