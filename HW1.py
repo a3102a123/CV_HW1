@@ -15,11 +15,18 @@ image_row = 0
 image_col = 0
 mask = []
 
-# input the array shape as (w*h) * 3 , every row is a normal vetor of one pixel
-def normal_visualization(N):
+def normal_visualization(N,origin_img_size = False):
+    # converting the array shape to (w*h) * 3 , every row is a normal vetor of one pixel
     N_map = np.copy(np.reshape(N, (image_row, image_col, 3)))
+    # Swap RGB <-> BGR
     N_map[:,:,0], N_map[:,:,2] = N_map[:,:,2], N_map[:,:,0].copy()
+    # Rescale to [0,1] float number (opencv will automatically convert float to [0,255])
     N_map = (N_map + 1.0) / 2.0
+    w,h,c = N_map.shape
+    while (not origin_img_size) and (w < 256 or h < 256):
+        w *= 2
+        h *= 2
+        N_map = cv2.resize(N_map,(w,h))
     cv2.imshow('Normal map', N_map)
     cv2.waitKey()
     cv2.destroyAllWindows()
@@ -179,15 +186,13 @@ print("Kdn array : ",Kdn.shape)
 n = np.zeros_like(Kdn)
 n = normalize(Kdn, axis=1)
 print(Kdn[int(image_row / 2 * image_col + image_col /2)]," ---> ",n[int(image_row / 2 * image_col + image_col /2)])
-n = Kdn
+# n = Kdn
 ### calculate the normal by numpy
 # for i in range(image_row*image_col):
 #     v = Kdn[i]
 #     norm = np.linalg.norm(v)
 #     if norm != 0:
 #         n[i] = v / norm
-
-# normal_visualization(n)
 
 # Surface Reconstruction
 
@@ -258,11 +263,14 @@ Z = np.zeros((image_row,image_col))
 for idx in range(num_pix):
     h = obj_h[idx]
     w = obj_w[idx]
-    Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
-    # Z[h,w] = z[idx]
+    # Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
+    Z[h,w] = z[idx]
 
 # print_depth(Z)
 # Z = surface_reconstruction_matrix(n)
+
+# visualizing corresponding parameter
 # depth_visualization(Z)
-save_ply(Z,"./temp.ply")
-read_ply("./temp.ply")
+normal_visualization(n)
+# save_ply(Z,"./temp.ply")
+# read_ply("./temp.ply")
