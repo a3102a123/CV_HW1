@@ -16,21 +16,20 @@ image_row = 0
 image_col = 0
 mask = []
 
-def normal_visualization(N,origin_img_size = False):
+def mask_visualization(M):
+    mask = np.copy(np.reshape(M, (image_row, image_col)))
+    plt.figure()
+    plt.imshow(mask, cmap='gray')
+    plt.title('Mask')
+
+def normal_visualization(N):
     # converting the array shape to (w*h) * 3 , every row is a normal vetor of one pixel
     N_map = np.copy(np.reshape(N, (image_row, image_col, 3)))
-    # Swap RGB <-> BGR
-    N_map[:,:,0], N_map[:,:,2] = N_map[:,:,2], N_map[:,:,0].copy()
-    # Rescale to [0,1] float number (opencv will automatically convert float to [0,255])
+    # Rescale to [0,1] float number
     N_map = (N_map + 1.0) / 2.0
-    w,h,c = N_map.shape
-    while (not origin_img_size) and (w < 256 or h < 256):
-        w *= 2
-        h *= 2
-        N_map = cv2.resize(N_map,(w,h))
-    cv2.imshow('Normal map', N_map)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+    plt.figure()
+    plt.imshow(N_map)
+    plt.title('Normal map')
 
 def depth_visualization(D):
     D_map = np.copy(np.reshape(D, (image_row,image_col)))
@@ -41,7 +40,6 @@ def depth_visualization(D):
     plt.title('Depth map')
     plt.xlabel('X Pixel')
     plt.ylabel('Y Pixel')
-    plt.show()
 
 def save_ply(Z,filepath):
     Z_map = np.reshape(Z, (image_row,image_col)).copy()
@@ -276,7 +274,9 @@ for idx in range(num_pix):
 # Z = surface_reconstruction_integral(n)
 
 # visualizing corresponding parameter
-# depth_visualization(Z)
-# normal_visualization(n)
+depth_visualization(Z)
+normal_visualization(n)
+mask_visualization(mask)
+plt.show()
 save_ply(Z,"./temp.ply")
 read_ply("./temp.ply")
