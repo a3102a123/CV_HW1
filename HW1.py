@@ -49,7 +49,7 @@ def save_ply(Z,filepath):
             idx = i * image_col + j
             data[idx][0] = j
             data[idx][1] = i
-            data[idx][2] = Z_map[image_row - 1 - i][image_col - 1 - j]
+            data[idx][2] = Z_map[image_row - 1 - i][j]
     # output to ply file
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(data)
