@@ -9,11 +9,12 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
 
-file_name = "bunny"
+file_name = "venus"
 image_arr = []
 light_vector_arr = []
 image_row = 0 
 image_col = 0
+threshold_val = 0.2
 mask = []
 
 def mask_visualization(M):
@@ -207,8 +208,12 @@ n = np.reshape(n, (image_row, image_col, 3))
 mask = np.zeros((image_row,image_col))
 for i in range(image_row):
     for j in range(image_col):
-        if n[i][j][2] != 0:
+        # thresholding for extrame depth value
+        if abs(n[i][j][2]) >= threshold_val:
             mask[i][j] = 1
+        elif abs(n[i][j][2]) != 0:
+            mask[i][j] = 1
+            n[i][j] = 0.01
 obj_h, obj_w = np.where(mask != 0)
 num_pix = np.size(obj_h)
 print("Valid pixel: ", num_pix)
@@ -251,10 +256,11 @@ for idx in range(num_pix):
         M[row_idx, idx_vert] = 1
         v[row_idx] = -ny / nz
 
-
 MtM = M.T @ M
 Mtv = M.T @ v
+print(MtM.shape,Mtv.shape)
 z = scipy.sparse.linalg.spsolve(MtM, Mtv)
+# z = scipy.sparse.linalg.lsqr(MtM,Mtv)
 
 std_z = np.std(z, ddof=1)
 mean_z = np.mean(z)
@@ -277,9 +283,9 @@ for idx in range(num_pix):
 # Z = surface_reconstruction_integral(n)
 
 # visualizing corresponding parameter
-depth_visualization(Z)
-normal_visualization(n)
-mask_visualization(mask)
+# depth_visualization(Z)
+# normal_visualization(n)
+# mask_visualization(mask)
 plt.show()
 save_ply(Z,"./temp.ply")
 read_ply("./temp.ply")
