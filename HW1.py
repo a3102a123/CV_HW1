@@ -209,7 +209,7 @@ mask = np.zeros((image_row,image_col))
 for i in range(image_row):
     for j in range(image_col):
         # thresholding for extrame depth value
-        if abs(n[i][j][2]) >= threshold_val:
+        if abs(n[i][j][2]) > threshold_val:
             mask[i][j] = 1
         elif abs(n[i][j][2]) != 0:
             mask[i][j] = 1
