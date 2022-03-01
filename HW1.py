@@ -17,12 +17,15 @@ image_col = 0
 threshold_val = 0.2
 mask = []
 
+# visualizing the mask (size : "image width" * "image height")
 def mask_visualization(M):
     mask = np.copy(np.reshape(M, (image_row, image_col)))
     plt.figure()
     plt.imshow(mask, cmap='gray')
     plt.title('Mask')
 
+# visualizing the unit normal vector in RGB color space
+# N is the normal map which contains the "unit normal vector" of all pixels (size : "image width" * "image height" * 3)
 def normal_visualization(N):
     # converting the array shape to (w*h) * 3 , every row is a normal vetor of one pixel
     N_map = np.copy(np.reshape(N, (image_row, image_col, 3)))
@@ -32,6 +35,8 @@ def normal_visualization(N):
     plt.imshow(N_map)
     plt.title('Normal map')
 
+# visualizing the depth on 2D image
+# D is the depth map which contains "only the z value" of all pixels (size : "image width" * "image height")
 def depth_visualization(D):
     D_map = np.copy(np.reshape(D, (image_row,image_col)))
     # D = np.uint8(D)
@@ -42,6 +47,8 @@ def depth_visualization(D):
     plt.xlabel('X Pixel')
     plt.ylabel('Y Pixel')
 
+# convert depth map to point cloud and save it to ply file
+# Z is the depth map which contains "only the z value" of all pixels (size : "image width" * "image height")
 def save_ply(Z,filepath):
     Z_map = np.reshape(Z, (image_row,image_col)).copy()
     data = np.zeros((image_row*image_col,3),dtype=np.float32)
@@ -59,9 +66,14 @@ def save_ply(Z,filepath):
     pcd.points = o3d.utility.Vector3dVector(data)
     o3d.io.write_point_cloud(filepath, pcd,write_ascii=True)
 
-def read_ply(filepath):
+# show the result of saved ply file
+def show_ply(filepath):
     pcd = o3d.io.read_point_cloud(filepath)
     o3d.visualization.draw_geometries([pcd])
+
+# read the .bmp file
+def read_bmp(filepath):
+    return cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
 
 def print_depth(Z):
     Z_map = np.reshape(Z,(image_row,image_col)).copy()
@@ -164,7 +176,7 @@ for i in range(1,7):
     image_name = "pic" + str(i) + ".bmp"
     image_path = os.path.join("test",file_name,image_name)
     print(image_path)
-    temp = cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+    temp = read_bmp(image_path)
     if i == 1:
         mask = np.asarray(temp)
         image_row,image_col = temp.shape
@@ -258,24 +270,12 @@ for idx in range(num_pix):
 
 MtM = M.T @ M
 Mtv = M.T @ v
-print(MtM.shape,Mtv.shape)
 z = scipy.sparse.linalg.spsolve(MtM, Mtv)
-# z = scipy.sparse.linalg.lsqr(MtM,Mtv)
-
-std_z = np.std(z, ddof=1)
-mean_z = np.mean(z)
-z_zscore = (z - mean_z) / std_z
-
-# 因奇异值造成的异常
-outlier_ind = np.abs(z_zscore) > 10
-z_min = np.min(z[~outlier_ind])
-z_max = np.max(z[~outlier_ind])
 
 Z = np.zeros((image_row,image_col))
 for idx in range(num_pix):
     h = obj_h[idx]
     w = obj_w[idx]
-    # Z[h, w] = (z[idx] - z_min) / (z_max - z_min) * 255
     Z[h,w] = z[idx]
 
 # other way try to solve the skewness of depth map
@@ -288,4 +288,4 @@ for idx in range(num_pix):
 # mask_visualization(mask)
 plt.show()
 save_ply(Z,"./temp.ply")
-read_ply("./temp.ply")
+show_ply("./temp.ply")
