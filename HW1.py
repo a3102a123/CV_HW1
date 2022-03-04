@@ -1,10 +1,8 @@
 import os
 import cv2
-from cv2 import threshold
 import numpy as np
 import re
 import open3d as o3d
-import open3d.core as o3c
 from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import scipy
@@ -73,7 +71,7 @@ def show_ply(filepath):
 
 # read the .bmp file
 def read_bmp(filepath):
-    return cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+    return cv2.imread(filepath,cv2.IMREAD_GRAYSCALE)
 
 def print_depth(Z):
     Z_map = np.reshape(Z,(image_row,image_col)).copy()
@@ -283,9 +281,9 @@ for idx in range(num_pix):
 # Z = surface_reconstruction_integral(n)
 
 # visualizing corresponding parameter
-# depth_visualization(Z)
-# normal_visualization(n)
-# mask_visualization(mask)
+depth_visualization(Z)
+normal_visualization(n)
+mask_visualization(mask)
 plt.show()
 save_ply(Z,"./temp.ply")
 show_ply("./temp.ply")
