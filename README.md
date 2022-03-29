@@ -16,7 +16,7 @@ Computer vision HW1 in NYCU
     ```
 - [Sklearn](https://scikit-learn.org/stable/index.html)
     ```
-    pip install -U scikit-learn\
+    pip install -U scikit-learn
     ```
 - matplotlib
     ```
